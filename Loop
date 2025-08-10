@@ -1,0 +1,61 @@
+-- LoopGoto LocalScript (Put in StarterPlayerScripts or StarterCharacterScripts)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local targetName = "thatonebeaver2" -- Target player's username
+
+-- Wait for character
+local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Disable death (so we don't stop teleporting when we fall)
+humanoid.BreakJointsOnDeath = false
+
+local function findTargetLegs(targetCharacter)
+    -- Try to find the legs (usually LeftLowerLeg or RightLowerLeg)
+    local leftLeg = targetCharacter:FindFirstChild("LeftLowerLeg") or targetCharacter:FindFirstChild("LeftFoot")
+    local rightLeg = targetCharacter:FindFirstChild("RightLowerLeg") or targetCharacter:FindFirstChild("RightFoot")
+    
+    -- If we can't find specific legs, just use HumanoidRootPart
+    if not leftLeg or not rightLeg then
+        return targetCharacter:WaitForChild("HumanoidRootPart")
+    end
+    
+    -- Find the position between the two legs
+    local legPosition = (leftLeg.Position + rightLeg.Position) / 2
+    return legPosition
+end
+
+local connection
+connection = RunService.Heartbeat:Connect(function()
+    local targetPlayer = Players:FindFirstChild(targetName)
+    if targetPlayer and targetPlayer.Character then
+        local targetCharacter = targetPlayer.Character
+        local targetLegPosition = findTargetLegs(targetCharacter)
+        
+        -- Teleport to slightly above the legs (so you're standing on them)
+        if typeof(targetLegPosition) == "Vector3" then
+            rootPart.CFrame = CFrame.new(targetLegPosition + Vector3.new(0, 3, 0))
+        else -- If we got a part instead of position
+            rootPart.CFrame = targetLegPosition.CFrame * CFrame.new(0, 3, 0)
+        end
+        
+        -- Prevent falling
+        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    end
+end)
+
+-- Cleanup when character dies
+localPlayer.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoid = newChar:WaitForChild("Humanoid")
+    rootPart = newChar:WaitForChild("HumanoidRootPart")
+    humanoid.BreakJointsOnDeath = false
+end)
+
+-- Disconnect when script is destroyed
+script.Destroying:Connect(function()
+    connection:Disconnect()
+end)

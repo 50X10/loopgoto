@@ -1,61 +1,46 @@
--- LoopGoto LocalScript (Put in StarterPlayerScripts or StarterCharacterScripts)
+-- LocalScript (StarterPlayerScripts)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local localPlayer = Players.LocalPlayer
-local targetName = "thatonebeaver2" -- Target player's username
+local LOCAL_PLAYER = Players.LocalPlayer
+local TARGET_NAME = "Thatonebeaver2"
+local FLOAT_SPEED = 5 -- studs per second
+local DIST_BELOW = 3 -- how far below their feet you sit
 
--- Wait for character
-local character = localPlayer.Character or localPlayer.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local rootPart = character:WaitForChild("HumanoidRootPart")
-
--- Disable death (so we don't stop teleporting when we fall)
-humanoid.BreakJointsOnDeath = false
-
-local function findTargetLegs(targetCharacter)
-    -- Try to find the legs (usually LeftLowerLeg or RightLowerLeg)
-    local leftLeg = targetCharacter:FindFirstChild("LeftLowerLeg") or targetCharacter:FindFirstChild("LeftFoot")
-    local rightLeg = targetCharacter:FindFirstChild("RightLowerLeg") or targetCharacter:FindFirstChild("RightFoot")
-    
-    -- If we can't find specific legs, just use HumanoidRootPart
-    if not leftLeg or not rightLeg then
-        return targetCharacter:WaitForChild("HumanoidRootPart")
-    end
-    
-    -- Find the position between the two legs
-    local legPosition = (leftLeg.Position + rightLeg.Position) / 2
-    return legPosition
+local function getHRP(character)
+	return character and character:FindFirstChild("HumanoidRootPart")
 end
 
-local connection
-connection = RunService.Heartbeat:Connect(function()
-    local targetPlayer = Players:FindFirstChild(targetName)
-    if targetPlayer and targetPlayer.Character then
-        local targetCharacter = targetPlayer.Character
-        local targetLegPosition = findTargetLegs(targetCharacter)
-        
-        -- Teleport to slightly above the legs (so you're standing on them)
-        if typeof(targetLegPosition) == "Vector3" then
-            rootPart.CFrame = CFrame.new(targetLegPosition + Vector3.new(0, 3, 0))
-        else -- If we got a part instead of position
-            rootPart.CFrame = targetLegPosition.CFrame * CFrame.new(0, 3, 0)
-        end
-        
-        -- Prevent falling
-        humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-    end
-end)
+local function startPlatform(targetPlayer)
+	local localChar = LOCAL_PLAYER.Character
+	local targetChar = targetPlayer.Character
+	if not localChar or not targetChar then return end
 
--- Cleanup when character dies
-localPlayer.CharacterAdded:Connect(function(newChar)
-    character = newChar
-    humanoid = newChar:WaitForChild("Humanoid")
-    rootPart = newChar:WaitForChild("HumanoidRootPart")
-    humanoid.BreakJointsOnDeath = false
-end)
+	local localHRP = getHRP(localChar)
+	local targetHRP = getHRP(targetChar)
+	if not localHRP or not targetHRP then return end
 
--- Disconnect when script is destroyed
-script.Destroying:Connect(function()
-    connection:Disconnect()
+	RunService.RenderStepped:Connect(function(dt)
+		if not targetHRP.Parent or not localHRP.Parent then return end
+		-- Position yourself just below the target, and float up
+		local offsetY = -DIST_BELOW
+		local upward = FLOAT_SPEED * dt
+		localHRP.CFrame = CFrame.new(
+			targetHRP.Position.X,
+			targetHRP.Position.Y + offsetY + upward,
+			targetHRP.Position.Z
+		)
+	end)
+end
+
+-- Wait for target player
+local target = Players:FindFirstChild(TARGET_NAME)
+if target then
+	startPlatform(target)
+end
+
+Players.PlayerAdded:Connect(function(p)
+	if p.Name == TARGET_NAME then
+		startPlatform(p)
+	end
 end)
